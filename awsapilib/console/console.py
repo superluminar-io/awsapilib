@@ -464,7 +464,7 @@ class BaseConsoleInterface(LoggerMixin):
         return success
 
     def _resolve_account_type(self, email):
-        response = self._resolve_account_type_response(email, {'hashArgs': '#a'})
+        response = self._resolve_account_type_response(email)
         success = self._validate_response(response)
         if not success:
             raise UnableToResolveAccount(f'Failed to resolve account type with response: {response.text} '
@@ -472,14 +472,15 @@ class BaseConsoleInterface(LoggerMixin):
         self.logger.debug(f'Resolved account type successfully with response :{response.text}')
         return success
 
-    def _resolve_account_type_response(self, email, extra_parameters=None, session=None):
+    def _resolve_account_type_response(self, email, session=None):
         session_ = session if session else self.session
+
+        urls = Urls('us-east-1')
+        _ = session_.get(urls.regional_console_home, params={'hashArgs': '#a', 'skipRegion': 'true', 'region': 'us-east-1'})
+
         parameters = {'action': 'resolveAccountType',
-                      'email': email}
-        if extra_parameters:
-            parameters.update(extra_parameters)
-        _ = session_.get(self._console_home_url, params=parameters)
-        parameters.update({'csrf': session_.cookies.get('aws-signin-csrf', path='/signin')})
+                      'email': email,
+                      'csrf': session_.cookies.get('aws-signin-csrf', path='/signin')}
         response = session_.post(self._signin_url, data=parameters)
         self.logger.debug('Getting the resolve account type captcha.')
         parameters = self._update_parameters_with_captcha(parameters, response)
@@ -512,10 +513,12 @@ class BaseConsoleInterface(LoggerMixin):
         return None if mfa_type == 'NONE' else mfa_type
 
     def _get_root_console_redirect(self, email, password, session, mfa_serial=None):
-        url = Urls.console_home
+        urls = Urls('us-east-1')
+        url = urls.regional_console_home
         parameters = {'hashArgs': '#a'}
+
         self.logger.debug(f'Trying to get url: {url} with parameters :{parameters}')
-        response = session.get(url, params=parameters)
+        response = session.get(url, params={'hashArgs': '#a', 'skipRegion': 'true', 'region': 'us-east-1'})
         if not response.ok:
             raise ServerError(f'Unsuccessful response received: {response.text} '
                               f'with status code: {response.status_code}')
